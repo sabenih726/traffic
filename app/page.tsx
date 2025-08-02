@@ -4,9 +4,6 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
-import { Slider } from "@/components/ui/slider"
 import { Circle, Power, RotateCcw, AlertTriangle, Activity, Wifi } from "lucide-react"
 
 interface TrafficStatus {
@@ -21,7 +18,6 @@ interface TrafficSettings {
   yellowDuration: number
   greenDuration: number
   autoRefresh: boolean
-  emergencyMode: boolean
 }
 
 export default function TrafficLightController() {
@@ -37,12 +33,12 @@ export default function TrafficLightController() {
     yellowDuration: 2,
     greenDuration: 5,
     autoRefresh: true,
-    emergencyMode: false,
   })
 
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null)
   const [isConnected, setIsConnected] = useState(true)
+  const [activeTab, setActiveTab] = useState("manual")
 
   // Simulasi koneksi ke server
   useEffect(() => {
@@ -57,7 +53,6 @@ export default function TrafficLightController() {
 
   const getCurrentStatus = async () => {
     try {
-      // Simulasi API call
       setIsConnected(true)
       setStatus((prev) => ({
         ...prev,
@@ -75,7 +70,6 @@ export default function TrafficLightController() {
     setIsLoading(true)
 
     try {
-      // Simulasi API call
       await new Promise((resolve) => setTimeout(resolve, 500))
 
       if (mode === "manual" && color) {
@@ -146,6 +140,10 @@ export default function TrafficLightController() {
     return "w-20 h-20 rounded-full border-4 border-gray-700 bg-gray-600"
   }
 
+  const updateSetting = (key: keyof TrafficSettings, value: number | boolean) => {
+    setSettings((prev) => ({ ...prev, [key]: value }))
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -211,130 +209,144 @@ export default function TrafficLightController() {
 
           {/* Controls */}
           <div className="space-y-6">
-            <Tabs defaultValue="manual" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="manual">Manual</TabsTrigger>
-                <TabsTrigger value="auto">Auto</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-              </TabsList>
+            {/* Tab Navigation */}
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+              {["manual", "auto", "settings"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === tab ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
 
-              <TabsContent value="manual" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Manual Control</CardTitle>
-                    <CardDescription>Control individual lights manually</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-3">
-                      <Button
-                        onClick={() => controlTraffic("manual", "red")}
-                        disabled={isLoading}
-                        className="bg-red-500 hover:bg-red-600 text-white py-3"
-                      >
-                        <Circle className="w-4 h-4 mr-2 fill-current" />🔴 MERAH
-                      </Button>
-                      <Button
-                        onClick={() => controlTraffic("manual", "yellow")}
-                        disabled={isLoading}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white py-3"
-                      >
-                        <Circle className="w-4 h-4 mr-2 fill-current" />🟡 KUNING
-                      </Button>
-                      <Button
-                        onClick={() => controlTraffic("manual", "green")}
-                        disabled={isLoading}
-                        className="bg-green-500 hover:bg-green-600 text-white py-3"
-                      >
-                        <Circle className="w-4 h-4 mr-2 fill-current" />🟢 HIJAU
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="auto" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Automatic Mode</CardTitle>
-                    <CardDescription>Automated traffic light sequence</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+            {/* Tab Content */}
+            {activeTab === "manual" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Manual Control</CardTitle>
+                  <CardDescription>Control individual lights manually</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3">
                     <Button
-                      onClick={() => controlTraffic("auto")}
+                      onClick={() => controlTraffic("manual", "red")}
                       disabled={isLoading}
-                      className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3"
+                      className="bg-red-500 hover:bg-red-600 text-white py-3"
                     >
-                      <RotateCcw className="w-4 h-4 mr-2" />🔄 START AUTO MODE
+                      <Circle className="w-4 h-4 mr-2 fill-current" />🔴 MERAH
                     </Button>
+                    <Button
+                      onClick={() => controlTraffic("manual", "yellow")}
+                      disabled={isLoading}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-white py-3"
+                    >
+                      <Circle className="w-4 h-4 mr-2 fill-current" />🟡 KUNING
+                    </Button>
+                    <Button
+                      onClick={() => controlTraffic("manual", "green")}
+                      disabled={isLoading}
+                      className="bg-green-500 hover:bg-green-600 text-white py-3"
+                    >
+                      <Circle className="w-4 h-4 mr-2 fill-current" />🟢 HIJAU
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-semibold mb-2">Auto Sequence:</h4>
-                      <div className="space-y-1 text-sm">
-                        <div>🔴 Merah: {settings.redDuration}s</div>
-                        <div>🟢 Hijau: {settings.greenDuration}s</div>
-                        <div>🟡 Kuning: {settings.yellowDuration}s</div>
-                      </div>
+            {activeTab === "auto" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Automatic Mode</CardTitle>
+                  <CardDescription>Automated traffic light sequence</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button
+                    onClick={() => controlTraffic("auto")}
+                    disabled={isLoading}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />🔄 START AUTO MODE
+                  </Button>
+
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-semibold mb-2">Auto Sequence:</h4>
+                    <div className="space-y-1 text-sm">
+                      <div>🔴 Merah: {settings.redDuration}s</div>
+                      <div>🟢 Hijau: {settings.greenDuration}s</div>
+                      <div>🟡 Kuning: {settings.yellowDuration}s</div>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-              <TabsContent value="settings" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Settings</CardTitle>
-                    <CardDescription>Configure timing and behavior</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium">Red Duration: {settings.redDuration}s</label>
-                        <Slider
-                          value={[settings.redDuration]}
-                          onValueChange={(value) => setSettings((prev) => ({ ...prev, redDuration: value[0] }))}
-                          max={30}
-                          min={1}
-                          step={1}
-                          className="mt-2"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-medium">Yellow Duration: {settings.yellowDuration}s</label>
-                        <Slider
-                          value={[settings.yellowDuration]}
-                          onValueChange={(value) => setSettings((prev) => ({ ...prev, yellowDuration: value[0] }))}
-                          max={10}
-                          min={1}
-                          step={1}
-                          className="mt-2"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-medium">Green Duration: {settings.greenDuration}s</label>
-                        <Slider
-                          value={[settings.greenDuration]}
-                          onValueChange={(value) => setSettings((prev) => ({ ...prev, greenDuration: value[0] }))}
-                          max={30}
-                          min={1}
-                          step={1}
-                          className="mt-2"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Auto Refresh Status</label>
-                      <Switch
-                        checked={settings.autoRefresh}
-                        onCheckedChange={(checked) => setSettings((prev) => ({ ...prev, autoRefresh: checked }))}
+            {activeTab === "settings" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Settings</CardTitle>
+                  <CardDescription>Configure timing and behavior</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium block mb-2">Red Duration: {settings.redDuration}s</label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="30"
+                        value={settings.redDuration}
+                        onChange={(e) => updateSetting("redDuration", Number.parseInt(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                       />
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+
+                    <div>
+                      <label className="text-sm font-medium block mb-2">
+                        Yellow Duration: {settings.yellowDuration}s
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={settings.yellowDuration}
+                        onChange={(e) => updateSetting("yellowDuration", Number.parseInt(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium block mb-2">
+                        Green Duration: {settings.greenDuration}s
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="30"
+                        value={settings.greenDuration}
+                        onChange={(e) => updateSetting("greenDuration", Number.parseInt(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Auto Refresh Status</label>
+                    <input
+                      type="checkbox"
+                      checked={settings.autoRefresh}
+                      onChange={(e) => updateSetting("autoRefresh", e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* System Controls */}
             <Card>
