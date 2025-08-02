@@ -1,0 +1,306 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>  
+#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
+
+// Konfigurasi WiFi
+const char* ssid = "subsidi pemerintah";
+const char* password = "tanyasinta";
+
+// Konfigurasi Server Vercel
+const char* serverUrl = "https://trafficprojectuas.vercel.app/api/traffic-status";
+
+// Konfigurasi Pin Traffic Light
+#define RED_LED D1        // Pin LED Merah
+#define YELLOW_LED D2     // Pin LED Kuning  
+#define GREEN_LED D3      // Pin LED Hijau
+#define STATUS_LED D4     // Pin LED status (built-in)
+
+// Variabel global - optimized memory usage
+String lastStatus = "";
+unsigned long lastCheck = 0;
+unsigned long autoTimer = 0;
+const unsigned long CHECK_INTERVAL = 2000; // Increased to 2 seconds
+
+// Dynamic timing - akan diambil dari server
+unsigned long redTime = 5000;
+unsigned long yellowTime = 2000;
+unsigned long greenTime = 5000;
+
+// Status variables
+bool autoMode = false;
+uint8_t autoStep = 0;
+uint8_t reconnectAttempts = 0;
+const uint8_t MAX_RECONNECT = 5;
+String currentMode = "off";
+String currentColor = "off";
+
+// Connection status
+bool serverHealthy = false;
+unsigned long lastSuccessfulConnection = 0;
+
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+  
+  // Clear any garbage in serial buffer
+  while(Serial.available()) {
+    Serial.read();
+  }
+  
+  Serial.println(F("\n=== Traffic Light Controller v2.1 ==="));
+  Serial.println(F("🚦 Connecting to Vercel Server"));
+  
+  // Inisialisasi pin
+  pinMode(RED_LED, OUTPUT);
+  pinMode(YELLOW_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(STATUS_LED, OUTPUT);
+  
+  // Set semua LED OFF saat startup
+  setAllLEDs(LOW);
+  digitalWrite(STATUS_LED, HIGH); // Status ON = tidak terhubung
+  
+  Serial.println(F("🚦 Pins: R=D1, Y=D2, G=D3, S=D4"));
+  
+  // Test LED sequence
+  testLEDs();
+  
+  // Connect to WiFi
+  connectWiFi();
+}
+
+void loop() {
+  // Check WiFi connection
+  if (WiFi.status() != WL_CONNECTED) {
+    handleReconnect();
+    return;
+  }
+  
+  // WiFi connected
+  reconnectAttempts = 0;
+  digitalWrite(STATUS_LED, LOW); // Status OFF = terhubung
+  
+  // Handle auto mode
+  if (autoMode) {
+    handleAutoMode();
+  }
+  
+  // Check server status
+  if (millis() - lastCheck >= CHECK_INTERVAL) {
+    checkServerStatus();
+    lastCheck = millis();
+  }
+  
+  // Small delay to prevent watchdog issues
+  delay(100);
+}
+
+void testLEDs() {
+  Serial.println(F("Testing LEDs..."));
+  
+  digitalWrite(RED_LED, HIGH);
+  delay(300);
+  digitalWrite(RED_LED, LOW);
+  
+  digitalWrite(YELLOW_LED, HIGH);
+  delay(300);
+  digitalWrite(YELLOW_LED, LOW);
+  
+  digitalWrite(GREEN_LED, HIGH);
+  delay(300);
+  digitalWrite(GREEN_LED, LOW);
+  
+  Serial.println(F("LED test complete"));
+}
+
+void connectWiFi() {
+  Serial.print(F("Connecting to: "));
+  Serial.println(ssid);
+  
+  WiFi.begin(ssid, password);
+  WiFi.setAutoReconnect(true);
+  
+  uint8_t attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(F("."));
+    attempts++;
+    
+    // Blink status LED
+    digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
+  }
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println(F("\n✅ WiFi connected"));
+    Serial.print(F("IP: "));
+    Serial.println(WiFi.localIP());
+    Serial.print(F("Signal: "));
+    Serial.print(WiFi.RSSI());
+    Serial.println(F(" dBm"));
+    digitalWrite(STATUS_LED, LOW);
+  } else {
+    Serial.println(F("\n❌ WiFi failed"));
+    digitalWrite(STATUS_LED, HIGH);
+  }
+}
+
+void handleReconnect() {
+  Serial.println(F("WiFi disconnected"));
+  digitalWrite(STATUS_LED, HIGH);
+  
+  reconnectAttempts++;
+  if (reconnectAttempts <= MAX_RECONNECT) {
+    WiFi.begin(ssid, password);
+    delay(3000);
+  } else {
+    Serial.println(F("Max reconnect reached. Restarting..."));
+    ESP.restart();
+  }
+}
+
+void checkServerStatus() {
+  WiFiClientSecure client;              // ✅ Gunakan client yang mendukung HTTPS
+  client.setInsecure();                 // ✅ Abaikan verifikasi SSL (perlu untuk akses HTTPS)
+
+  HTTPClient http;
+
+  Serial.print(F("🌐 Checking server... "));
+
+  http.begin(client, serverUrl);        // ✅ Gunakan versi HTTPS dari http.begin
+  int httpCode = http.GET();
+
+  if (httpCode > 0) {
+    Serial.println(F("✅ OK"));
+    String payload = http.getString();
+    Serial.println("📡 Server: " + payload);
+    processCommand(payload); // ✅ Panggil fungsi yang benar
+  } else {
+    Serial.print(F("❌ Failed, error: "));
+    Serial.println(http.errorToString(httpCode));
+  }
+
+  http.end();
+}
+
+void processCommand(const String& command) {
+  // Parse JSON response with error handling
+  DynamicJsonDocument doc(256); // Reduced size
+  DeserializationError error = deserializeJson(doc, command);
+  
+  if (error) {
+    Serial.print(F("❌ JSON parse error: "));
+    Serial.println(error.c_str());
+    return;
+  }
+  
+  // Extract mode and color safely
+  if (!doc.containsKey("mode") || !doc.containsKey("color")) {
+    Serial.println(F("❌ Missing required fields"));
+    return;
+  }
+  
+  String mode = doc["mode"].as<String>();
+  String color = doc["color"].as<String>();
+  
+  currentMode = mode;
+  currentColor = color;
+  
+  Serial.print(F("📊 Mode: ")); Serial.print(mode);
+  Serial.print(F(", Color: ")); Serial.println(color);
+  
+  if (mode == "auto") {
+    autoMode = true;
+    autoTimer = millis();
+    autoStep = 0;
+    Serial.println(F("🔄 AUTO Mode"));
+  } 
+  else if (mode == "manual") {
+    autoMode = false;
+    
+    if (color == "red") {
+      setTrafficLight(1);
+    } 
+    else if (color == "yellow") {
+      setTrafficLight(2);
+    } 
+    else if (color == "green") {
+      setTrafficLight(3);
+    }
+  } 
+  else if (mode == "off") {
+    autoMode = false;
+    setTrafficLight(0);
+  }
+}
+
+void setTrafficLight(uint8_t color) {
+  // Turn off all LEDs first
+  setAllLEDs(LOW);
+  
+  switch (color) {
+    case 1: // Red
+      digitalWrite(RED_LED, HIGH);
+      Serial.println(F("🔴 RED"));
+      break;
+    case 2: // Yellow
+      digitalWrite(YELLOW_LED, HIGH);
+      Serial.println(F("🟡 YELLOW"));
+      break;
+    case 3: // Green
+      digitalWrite(GREEN_LED, HIGH);
+      Serial.println(F("🟢 GREEN"));
+      break;
+    default: // Off
+      Serial.println(F("⚫ OFF"));
+      break;
+  }
+}
+
+void setAllLEDs(uint8_t state) {
+  digitalWrite(RED_LED, state);
+  digitalWrite(YELLOW_LED, state);
+  digitalWrite(GREEN_LED, state);
+}
+
+void handleAutoMode() {
+  unsigned long elapsed = millis() - autoTimer;
+  
+  switch (autoStep) {
+    case 0: // Red
+      if (elapsed == 0 || (elapsed < 100 && digitalRead(RED_LED) == LOW)) {
+        setTrafficLight(1);
+      }
+      if (elapsed >= redTime) {
+        autoStep = 1;
+        autoTimer = millis();
+      }
+      break;
+      
+    case 1: // Green
+      if (elapsed == 0 || (elapsed < 100 && digitalRead(GREEN_LED) == LOW)) {
+        setTrafficLight(3);
+      }
+      if (elapsed >= greenTime) {
+        autoStep = 2;
+        autoTimer = millis();
+      }
+      break;
+      
+    case 2: // Yellow
+      if (elapsed == 0 || (elapsed < 100 && digitalRead(YELLOW_LED) == LOW)) {
+        setTrafficLight(2);
+      }
+      if (elapsed >= yellowTime) {
+        autoStep = 0;
+        autoTimer = millis();
+      }
+      break;
+  }
+}
+
+// Memory cleanup function
+void cleanupMemory() {
+  // Force garbage collection
+  ESP.wdtFeed();
+}
