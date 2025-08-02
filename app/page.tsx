@@ -153,7 +153,7 @@ export default function TrafficLightController() {
             <CardTitle className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-3">
               🚦 Traffic Light Controller
             </CardTitle>
-            <CardDescription className="text-lg">Wemos D1 R2 - LED 8mm 5V Controller</CardDescription>
+            <CardDescription className="text-lg">UAS Matakuliah Internet of Things</CardDescription>
             <div className="flex items-center justify-center gap-4 mt-4">
               <Badge variant={isConnected ? "default" : "destructive"} className="flex items-center gap-2">
                 <Wifi className="w-4 h-4" />
@@ -390,16 +390,8 @@ export default function TrafficLightController() {
         <Card className="bg-white/95 backdrop-blur-sm">
           <CardContent className="py-4">
             <div className="text-center text-sm text-gray-600 space-y-2">
-              <p>🔄 Status diperbarui otomatis setiap 2 detik</p>
-              <p>
-                🚦 Mode AUTO: Merah ({settings.redDuration}s) → Hijau ({settings.greenDuration}s) → Kuning (
-                {settings.yellowDuration}s)
-              </p>
-              <p>⚡ Emergency Stop akan mengaktifkan lampu merah</p>
-              <p>⌨️ Keyboard Shortcuts: 1=Merah, 2=Kuning, 3=Hijau, A=Auto, 0=Off, E=Emergency</p>
-              <p className="text-blue-600 font-medium">
-                🌐 API Endpoint: https://traffic-steel.vercel.app/api/traffic-status
-              </p>
+              <p>Pembuatan dilakukan pada malam hari</p>
+              <p>Keyboard Shortcuts: 1=Merah, 2=Kuning, 3=Hijau, A=Auto, 0=Off, E=Emergency</p>
             </div>
           </CardContent>
         </Card>
