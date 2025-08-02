@@ -40,8 +40,23 @@ export default function TrafficLightController() {
   const [isConnected, setIsConnected] = useState(true)
   const [activeTab, setActiveTab] = useState("manual")
 
-  // Simulasi koneksi ke server
+  // Get current status from API
+  const getCurrentStatus = async () => {
+    try {
+      const response = await fetch("/api/traffic-status")
+      const data = await response.json()
+      setStatus(data)
+      setIsConnected(true)
+    } catch (error) {
+      setIsConnected(false)
+      showMessage("Gagal menghubungi server", "error")
+    }
+  }
+
+  // Auto refresh status
   useEffect(() => {
+    getCurrentStatus() // Initial load
+
     const interval = setInterval(() => {
       if (settings.autoRefresh) {
         getCurrentStatus()
@@ -51,51 +66,29 @@ export default function TrafficLightController() {
     return () => clearInterval(interval)
   }, [settings.autoRefresh])
 
-  const getCurrentStatus = async () => {
-    try {
-      setIsConnected(true)
-      setStatus((prev) => ({
-        ...prev,
-        lastUpdate: new Date().toISOString(),
-      }))
-    } catch (error) {
-      setIsConnected(false)
-      showMessage("Gagal menghubungi server", "error")
-    }
-  }
-
   const controlTraffic = async (mode: string, color?: string) => {
     if (isLoading) return
 
     setIsLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      const body = color ? { mode, color } : { mode }
 
-      if (mode === "manual" && color) {
-        setStatus({
-          mode: "manual",
-          color: color as any,
-          autoStep: 0,
-          lastUpdate: new Date().toISOString(),
-        })
-        showMessage(`Traffic light diatur ke ${color.toUpperCase()}`, "success")
-      } else if (mode === "auto") {
-        setStatus({
-          mode: "auto",
-          color: "red",
-          autoStep: 0,
-          lastUpdate: new Date().toISOString(),
-        })
-        showMessage("Mode otomatis diaktifkan", "success")
-      } else if (mode === "off") {
-        setStatus({
-          mode: "off",
-          color: "off",
-          autoStep: 0,
-          lastUpdate: new Date().toISOString(),
-        })
-        showMessage("Semua lampu dimatikan", "success")
+      const response = await fetch("/api/control-traffic", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setStatus(data.status)
+        showMessage(data.message, "success")
+      } else {
+        showMessage(data.message, "error")
       }
     } catch (error) {
       showMessage("Gagal menghubungi server", "error")
@@ -107,14 +100,21 @@ export default function TrafficLightController() {
   const emergencyStop = async () => {
     setIsLoading(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      setStatus({
-        mode: "manual",
-        color: "red",
-        autoStep: 0,
-        lastUpdate: new Date().toISOString(),
+      const response = await fetch("/api/emergency", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
       })
-      showMessage("🚨 Emergency mode activated - All RED", "error")
+
+      const data = await response.json()
+
+      if (data.success) {
+        setStatus(data.status)
+        showMessage(data.message, "error")
+      } else {
+        showMessage(data.message, "error")
+      }
     } catch (error) {
       showMessage("Gagal mengaktifkan emergency stop", "error")
     } finally {
@@ -397,6 +397,9 @@ export default function TrafficLightController() {
               </p>
               <p>⚡ Emergency Stop akan mengaktifkan lampu merah</p>
               <p>⌨️ Keyboard Shortcuts: 1=Merah, 2=Kuning, 3=Hijau, A=Auto, 0=Off, E=Emergency</p>
+              <p className="text-blue-600 font-medium">
+                🌐 API Endpoint: https://traffic-steel.vercel.app/api/traffic-status
+              </p>
             </div>
           </CardContent>
         </Card>
