@@ -1,0 +1,35 @@
+{
+  "name": "traffic-light-controller",
+  "version": "2.0.0",
+  "description": "Traffic Light Controller untuk Wemos D1 R2 dengan LED 8mm 5V",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Testing traffic light system\" && node test.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "arduino",
+    "wemos-d1-r2",
+    "traffic-light",
+    "iot",
+    "led-controller",
+    "nodejs",
+    "esp8266"
+  ],
+  "author": "Traffic Light Developer",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "your-repository-url"
+  }
+}
